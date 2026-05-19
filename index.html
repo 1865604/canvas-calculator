@@ -31,7 +31,7 @@
 const canvas = document.getElementById('calcCanvas');
 const ctx = canvas.getContext('2d');
 
-// 高解像度ディスプレイ（Retinaなど）対応
+// 高解像度ディスプレイ対応
 const dpr = window.devicePixelRatio || 1;
 canvas.width = 340 * dpr;
 canvas.height = 520 * dpr;
@@ -43,15 +43,14 @@ let displayValue = '0';
 let currentInput = '';
 let activeKey = null;
 
-// --- 【変更】背景画像に電子回路のイメージを設定 ---
+// 背景画像（電子回路）
 const bgImage = new Image();
 bgImage.src = 'https://unsplash.com'; 
 
+// --- 【変更】お送りいただいたロゴ画像を設定 ---
 const logoImage = new Image();
-// 任意のロゴ画像のURLに置き換えてください（透過PNG推奨）
-logoImage.src = 'https://picsum.photos'; 
+logoImage.src = 'https://googleusercontent.com'; // アップロードされたMNDIロゴ
 
-// 画像が読み込まれたら再描画する
 let imagesLoaded = 0;
 function onImageLoad() {
     imagesLoaded++;
@@ -64,9 +63,10 @@ logoImage.onload = onImageLoad;
 bgImage.onerror = () => { imagesLoaded++; draw(); };
 logoImage.onerror = () => { imagesLoaded++; draw(); };
 
+// --- 【変更】ボタンの表示文字を「/」「*」から「÷」「×」に変更 ---
 const buttons = [
-    ['C', '(', ')', '/'],
-    ['7', '8', '9', '*'],
+    ['C', '(', ')', '÷'],
+    ['7', '8', '9', '×'],
     ['4', '5', '6', '-'],
     ['1', '2', '3', '+'],
     ['+/-', '0', '.', '=']
@@ -88,7 +88,8 @@ function drawRoundRect(x, y, w, h, r, fillColor, strokeColor = null) {
     ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
     ctx.lineTo(x + r, y + h);
     ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-    ctx.lineTo(x, r); ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
     ctx.closePath();
     ctx.fillStyle = fillColor;
     ctx.fill();
@@ -102,7 +103,7 @@ function drawRoundRect(x, y, w, h, r, fillColor, strokeColor = null) {
 function draw() {
     ctx.clearRect(0, 0, 340, 520);
 
-    // 1. 電卓全体のクリッピングと電子回路背景の描画
+    // 1. 電子回路背景の描画
     ctx.save();
     ctx.beginPath();
     const r = 24;
@@ -115,7 +116,6 @@ function draw() {
 
     if (bgImage.complete && bgImage.naturalWidth !== 0) {
         ctx.drawImage(bgImage, 0, 0, 340, 520);
-        // 背景を少し暗くして文字を見えやすくするオーバーレイ
         ctx.fillStyle = 'rgba(15, 23, 42, 0.4)';
         ctx.fillRect(0, 0, 340, 520);
     } else {
@@ -124,18 +124,18 @@ function draw() {
     }
     ctx.restore();
 
-    // 2. ロゴの描画
+    // 2. 【変更】ロゴの描画（ディスプレイの左上に横長で綺麗に収まるサイズに調整）
     if (logoImage.complete && logoImage.naturalWidth !== 0) {
-        ctx.drawImage(logoImage, 24, 24, 26, 26);
+        // 横幅70px、縦幅70pxに縮小して配置
+        ctx.drawImage(logoImage, 20, 10, 70, 70);
     } else {
-        // 画像が無い場合の近未来風テキストロゴ
-        ctx.fillStyle = '#38bdf8'; // サイバーブルー
+        ctx.fillStyle = '#38bdf8'; 
         ctx.font = 'bold 14px monospace';
         ctx.textAlign = 'left';
-        ctx.fillText('SYS.CALC_//', 24, 42);
+        ctx.fillText('MNDI', 24, 42);
     }
 
-    // 3. ディスプレイ領域（サイバーテイストに合わせて白から黒系の透過に変更）
+    // 3. ディスプレイ領域
     ctx.fillStyle = 'rgba(15, 23, 42, 0.6)';
     ctx.fillRect(0, 0, 340, topOffset);
     
@@ -152,7 +152,7 @@ function draw() {
     if (displayValue.length > 10) ctx.font = 'bold 28px sans-serif';
     ctx.fillText(displayValue, 340 - 24, 105);
 
-    // 4. ボタンの描画（回路が綺麗に透けるダークグラスモーフィズム風）
+    // 4. ボタンの描画
     for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
             const btnText = buttons[r][c];
@@ -161,18 +161,16 @@ function draw() {
 
             const isHovered = (activeKey && activeKey.r === r && activeKey.c === c);
             
-            // 電子回路に映える半透明ダークカラー
             let bg = isHovered ? 'rgba(255, 255, 255, 0.25)' : 'rgba(255, 255, 255, 0.12)'; 
             let textColor = '#f1f5f9';
             let border = 'rgba(255, 255, 255, 0.15)';
             
-            if (['/', '*', '-', '+', '='].includes(btnText)) {
-                // 演算子はネオンブルー
+            // 判定に「÷」と「×」を含めるよう修正
+            if (['÷', '×', '-', '+', '='].includes(btnText)) {
                 bg = isHovered ? 'rgba(14, 165, 233, 0.9)' : 'rgba(2, 132, 199, 0.7)';
                 textColor = '#ffffff';
                 border = 'rgba(56, 189, 248, 0.5)';
             } else if (['C', '(', ')', '+/-'].includes(btnText)) {
-                // 機能ボタンは暗めの透過
                 bg = isHovered ? 'rgba(74, 85, 104, 0.7)' : 'rgba(30, 41, 59, 0.6)';
                 textColor = '#cbd5e1';
                 border = 'rgba(255, 255, 255, 0.1)';
@@ -181,7 +179,7 @@ function draw() {
             drawRoundRect(x, y, btnWidth, btnHeight, 16, bg, border);
 
             ctx.fillStyle = textColor;
-            ctx.font = ['/', '*', '-', '+', '='].includes(btnText) ? 'bold 22px sans-serif' : '20px sans-serif';
+            ctx.font = ['÷', '×', '-', '+', '='].includes(btnText) ? 'bold 22px sans-serif' : '20px sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(btnText, x + btnWidth / 2, y + btnHeight / 2);
@@ -231,6 +229,7 @@ canvas.addEventListener('mouseup', handleEnd);
 canvas.addEventListener('touchstart', (e) => { e.preventDefault(); handleStart(e); });
 canvas.addEventListener('touchend', (e) => { e.preventDefault(); handleEnd(e); });
 
+// --- 【変更】計算ロジックにかけ算・わり算の置換を追加 ---
 function handleInput(key) {
     if (key === 'C') {
         currentInput = '';
@@ -238,6 +237,7 @@ function handleInput(key) {
     } else if (key === '=') {
         try {
             if (currentInput) {
+                // 画面表示用の「×」「÷」を、evalが処理できる「*」「/」に一括置換して計算
                 let sanitized = currentInput.replace(/×/g, '*').replace(/÷/g, '/');
                 let result = eval(sanitized);
                 displayValue = Number(result).toString();
@@ -253,7 +253,7 @@ function handleInput(key) {
             currentInput = displayValue;
         }
     } else {
-        if (displayValue === '0' && !['/', '*', '-', '+'].includes(key)) {
+        if (displayValue === '0' && !['÷', '×', '-', '+'].includes(key)) {
             currentInput = key;
         } else {
             currentInput += key;
