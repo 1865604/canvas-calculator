@@ -10,14 +10,14 @@
             justify-content: center; 
             align-items: center; 
             height: 100vh; 
-            background: linear-gradient(135deg, #e0eafc, #cfdef3); 
+            background: linear-gradient(135deg, #0f172a, #1e293b); 
             margin: 0; 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
         canvas { 
-            box-shadow: 0 20px 40px rgba(0,0,0,0.15); 
+            box-shadow: 0 25px 50px rgba(0,0,0,0.4); 
             border-radius: 24px; 
-            background: #ffffff;
+            background: #111827;
             cursor: pointer;
             -webkit-tap-highlight-color: transparent;
         }
@@ -41,9 +41,29 @@ ctx.scale(dpr, dpr);
 
 let displayValue = '0';
 let currentInput = '';
-let activeKey = null; // タッチ中のボタン
+let activeKey = null;
 
-// Windows/Google風のモダンな配列
+// --- 【変更】背景画像に電子回路のイメージを設定 ---
+const bgImage = new Image();
+bgImage.src = 'https://unsplash.com'; 
+
+const logoImage = new Image();
+// 任意のロゴ画像のURLに置き換えてください（透過PNG推奨）
+logoImage.src = 'https://picsum.photos'; 
+
+// 画像が読み込まれたら再描画する
+let imagesLoaded = 0;
+function onImageLoad() {
+    imagesLoaded++;
+    if (imagesLoaded >= 2) {
+        draw();
+    }
+}
+bgImage.onload = onImageLoad;
+logoImage.onload = onImageLoad;
+bgImage.onerror = () => { imagesLoaded++; draw(); };
+logoImage.onerror = () => { imagesLoaded++; draw(); };
+
 const buttons = [
     ['C', '(', ')', '/'],
     ['7', '8', '9', '*'],
@@ -55,11 +75,10 @@ const buttons = [
 const cols = 4;
 const rows = 5;
 const padding = 12; 
-const topOffset = 140; // ディスプレイ領域を広く
+const topOffset = 140; 
 const btnWidth = (340 - (padding * (cols + 1))) / cols;
 const btnHeight = (520 - topOffset - (padding * (rows + 1))) / rows;
 
-// 角丸四角形を描画するヘルパー関数
 function drawRoundRect(x, y, w, h, r, fillColor, strokeColor = null) {
     ctx.beginPath();
     ctx.moveTo(x + r, y);
@@ -69,8 +88,7 @@ function drawRoundRect(x, y, w, h, r, fillColor, strokeColor = null) {
     ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
     ctx.lineTo(x + r, y + h);
     ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-    ctx.lineTo(x, y + r);
-    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.lineTo(x, r); ctx.quadraticCurveTo(x, y, x + r, y);
     ctx.closePath();
     ctx.fillStyle = fillColor;
     ctx.fill();
@@ -81,32 +99,60 @@ function drawRoundRect(x, y, w, h, r, fillColor, strokeColor = null) {
     }
 }
 
-// 画面全体の描画
 function draw() {
     ctx.clearRect(0, 0, 340, 520);
 
-    // 1. 背景の描画（Windowsのグラスモーフィズム風）
-    drawRoundRect(0, 0, 340, 520, 24, '#f3f3f3');
+    // 1. 電卓全体のクリッピングと電子回路背景の描画
+    ctx.save();
+    ctx.beginPath();
+    const r = 24;
+    ctx.moveTo(r, 0); ctx.lineTo(340-r, 0); ctx.quadraticCurveTo(340, 0, 340, r);
+    ctx.lineTo(340, 520-r); ctx.quadraticCurveTo(340, 520, 340-r, 520);
+    ctx.lineTo(r, 520); ctx.quadraticCurveTo(0, 520, 0, 520-r);
+    ctx.lineTo(0, r); ctx.quadraticCurveTo(0, 0, r, 0);
+    ctx.closePath();
+    ctx.clip();
 
-    // 2. ディスプレイ領域
-    ctx.fillStyle = '#f3f3f3';
+    if (bgImage.complete && bgImage.naturalWidth !== 0) {
+        ctx.drawImage(bgImage, 0, 0, 340, 520);
+        // 背景を少し暗くして文字を見えやすくするオーバーレイ
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.4)';
+        ctx.fillRect(0, 0, 340, 520);
+    } else {
+        ctx.fillStyle = '#1e293b';
+        ctx.fillRect(0, 0, 340, 520);
+    }
+    ctx.restore();
+
+    // 2. ロゴの描画
+    if (logoImage.complete && logoImage.naturalWidth !== 0) {
+        ctx.drawImage(logoImage, 24, 24, 26, 26);
+    } else {
+        // 画像が無い場合の近未来風テキストロゴ
+        ctx.fillStyle = '#38bdf8'; // サイバーブルー
+        ctx.font = 'bold 14px monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText('SYS.CALC_//', 24, 42);
+    }
+
+    // 3. ディスプレイ領域（サイバーテイストに合わせて白から黒系の透過に変更）
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.6)';
     ctx.fillRect(0, 0, 340, topOffset);
     
-    // 計算式の履歴（小さく表示）
-    ctx.fillStyle = '#5f6368';
-    ctx.font = '16px sans-serif';
+    // 計算式の履歴
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '16px monospace';
     ctx.textAlign = 'right';
     ctx.fillText(currentInput || ' ', 340 - 24, 50);
 
-    // メイン数値（Google風の太文字とゆったりした配置）
-    ctx.fillStyle = '#1a1a1a';
+    // メイン数値
+    ctx.fillStyle = '#f8fafc';
     ctx.font = 'bold 44px sans-serif';
     ctx.textAlign = 'right';
-    // 文字が長すぎる場合はサイズを小さくする
     if (displayValue.length > 10) ctx.font = 'bold 28px sans-serif';
     ctx.fillText(displayValue, 340 - 24, 105);
 
-    // 3. ボタンの描画
+    // 4. ボタンの描画（回路が綺麗に透けるダークグラスモーフィズム風）
     for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
             const btnText = buttons[r][c];
@@ -115,27 +161,25 @@ function draw() {
 
             const isHovered = (activeKey && activeKey.r === r && activeKey.c === c);
             
-            // 色の定義（Google / Windows11を意識した配色）
-            let bg = '#ffffff'; // 基本は白
-            let textColor = '#1a1a1a';
+            // 電子回路に映える半透明ダークカラー
+            let bg = isHovered ? 'rgba(255, 255, 255, 0.25)' : 'rgba(255, 255, 255, 0.12)'; 
+            let textColor = '#f1f5f9';
+            let border = 'rgba(255, 255, 255, 0.15)';
             
             if (['/', '*', '-', '+', '='].includes(btnText)) {
-                // 記号・イコールはアクセントカラー（Googleブルー）
-                bg = isHovered ? '#1557b0' : '#1a73e8';
+                // 演算子はネオンブルー
+                bg = isHovered ? 'rgba(14, 165, 233, 0.9)' : 'rgba(2, 132, 199, 0.7)';
                 textColor = '#ffffff';
+                border = 'rgba(56, 189, 248, 0.5)';
             } else if (['C', '(', ')', '+/-'].includes(btnText)) {
-                // 機能ボタンは薄いグレー
-                bg = isHovered ? '#dcdcdc' : '#f1f3f4';
-                textColor = '#3c4043';
-            } else {
-                // 数字ボタンのホバー
-                if (isHovered) bg = '#f8f9fa';
+                // 機能ボタンは暗めの透過
+                bg = isHovered ? 'rgba(74, 85, 104, 0.7)' : 'rgba(30, 41, 59, 0.6)';
+                textColor = '#cbd5e1';
+                border = 'rgba(255, 255, 255, 0.1)';
             }
 
-            // ボタン本体の描画（滑らかな角丸）
-            drawRoundRect(x, y, btnWidth, btnHeight, 16, bg);
+            drawRoundRect(x, y, btnWidth, btnHeight, 16, bg, border);
 
-            // ボタンの文字
             ctx.fillStyle = textColor;
             ctx.font = ['/', '*', '-', '+', '='].includes(btnText) ? 'bold 22px sans-serif' : '20px sans-serif';
             ctx.textAlign = 'center';
@@ -145,7 +189,6 @@ function draw() {
     }
 }
 
-// 座標からどのボタンが押されたか判定する関数
 function getButtonFromCoords(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
     const x = (clientX - rect.left) * (340 / rect.width);
@@ -165,7 +208,6 @@ function getButtonFromCoords(clientX, clientY) {
     return null;
 }
 
-// 押し心地を出すためのイベント（マウス＆スマホ両対応）
 function handleStart(e) {
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
@@ -189,7 +231,6 @@ canvas.addEventListener('mouseup', handleEnd);
 canvas.addEventListener('touchstart', (e) => { e.preventDefault(); handleStart(e); });
 canvas.addEventListener('touchend', (e) => { e.preventDefault(); handleEnd(e); });
 
-// 計算ロジック
 function handleInput(key) {
     if (key === 'C') {
         currentInput = '';
@@ -197,7 +238,6 @@ function handleInput(key) {
     } else if (key === '=') {
         try {
             if (currentInput) {
-                // 安全な計算のために基本的な記号のみ許可して評価
                 let sanitized = currentInput.replace(/×/g, '*').replace(/÷/g, '/');
                 let result = eval(sanitized);
                 displayValue = Number(result).toString();
@@ -222,7 +262,6 @@ function handleInput(key) {
     }
 }
 
-// 初回描画
 draw();
 </script>
 </body>
