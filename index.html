@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Canvas 電卓</title>
+    <style>
+        body { display: flex; justify-content: center; align-items: center; height: 100vh; background: #f0f0f0; margin: 0; }
+        canvas { border: 2px solid #333; background: #fff; border-radius: 10px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<canvas id="calcCanvas" width="320" height="480"></canvas>
+
+<script>
+const canvas = document.getElementById('calcCanvas');
+const ctx = canvas.getContext('2d');
+
+let displayValue = '0';
+let currentInput = '';
+
+// ボタンの配置定義
+const buttons = [
+    ['C', ' ', ' ', '/'],
+    ['7', '8', '9', '*'],
+    ['4', '5', '6', '-'],
+    ['1', '2', '3', '+'],
+    ['0', ' ', ' ', '=']
+];
+
+const cols = 4;
+const rows = 5;
+const btnWidth = canvas.width / cols;
+const btnHeight = (canvas.height - 100) / rows; // 画面上部100pxはディスプレイ用
+
+// 画面の描画関数
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // 1. ディスプレイの描画
+    ctx.fillStyle = '#222';
+    ctx.fillRect(0, 0, canvas.width, 100);
+    ctx.fillStyle = '#fff';
+    ctx.font = '40px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(displayValue, canvas.width - 20, 65);
+
+    // 2. ボタンの描画
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            const btnText = buttons[r][c];
+            if (btnText === ' ') continue; // 空白はスキップ
+
+            let x = c * btnWidth;
+            let y = 100 + r * btnHeight;
+            let w = btnWidth;
+            let h = btnHeight;
+
+            // 「0」ボタンは横に3マス分つなげる
+            if (btnText === '0') w = btnWidth * 3;
+
+            // ボタンの背景色
+            ctx.fillStyle = (btnText === '=') ? '#ff9500' : 
+                            (['/', '*', '-', '+'].includes(btnText)) ? '#f1c40f' : 
+                            (btnText === 'C') ? '#e74c3c' : '#e0e0e0';
+            
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.fillRect(x, y, w, h);
+            ctx.strokeRect(x, y, w, h);
+
+            // ボタンの文字
+            ctx.fillStyle = (['=', '/', '*', '-', '+', 'C'].includes(btnText)) ? '#fff' : '#333';
+            ctx.font = '24px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(btnText, x + w / 2, y + h / 2);
+        }
+    }
+}
+
+// クリック（タップ）イベントの処理
+canvas.addEventListener('click', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    if (y < 100) return; // ディスプレイ部分は無視
+
+    const c = Math.floor(x / btnWidth);
+    const r = Math.floor((y - 100) / btnHeight);
+    let clickedText = buttons[r][c];
+
+    // 「0」の拡大対応
+    if (r === 4 && c < 3) clickedText = '0';
+
+    if (clickedText && clickedText !== ' ') {
+        handleInput(clickedText);
+    }
+});
+
+// 計算ロジック
+function handleInput(key) {
+    if (key === 'C') {
+        currentInput = '';
+        displayValue = '0';
+    } else if (key === '=') {
+        try {
+            // evalで簡易計算（※学習用の簡易実装です）
+            if (currentInput) {
+                let result = eval(currentInput);
+                displayValue = Number(result).toString();
+                currentInput = displayValue;
+            }
+        } catch (error) {
+            displayValue = 'Error';
+            currentInput = '';
+        }
+    } else {
+        if (displayValue === '0' && !['/', '*', '-', '+'].includes(key)) {
+            currentInput = key;
+        } else {
+            currentInput += key;
+        }
+        displayValue = currentInput;
+    }
+    draw();
+}
+
+// 初回描画
+draw();
+</script>
+</body>
+</html>
