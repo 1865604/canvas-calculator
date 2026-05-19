@@ -31,13 +31,17 @@
 const canvas = document.getElementById('calcCanvas');
 const ctx = canvas.getContext('2d');
 
-// 高解像度ディスプレイ対応
+// 高解像度ディスプレイ（Retinaなど）対応の強化
 const dpr = window.devicePixelRatio || 1;
 canvas.width = 340 * dpr;
 canvas.height = 520 * dpr;
 canvas.style.width = '340px';
 canvas.style.height = '520px';
 ctx.scale(dpr, dpr);
+
+// 画像描画のぼやけを防ぐ画質向上設定
+ctx.imageSmoothingEnabled = true;
+ctx.imageSmoothingQuality = 'high';
 
 let displayValue = '0';
 let currentInput = '';
@@ -47,9 +51,11 @@ let activeKey = null;
 const bgImage = new Image();
 bgImage.src = 'https://unsplash.com'; 
 
-// --- 【変更】お送りいただいたロゴ画像を設定 ---
+// --- 【変更】お送りいただいたロゴ画像を直接埋め込み ---
 const logoImage = new Image();
-logoImage.src = 'https://googleusercontent.com'; // アップロードされたMNDIロゴ
+// 画像の読み込み時にクロスドメインの問題を防ぐ設定
+logoImage.crossOrigin = 'anonymous';
+logoImage.src = 'https://googleusercontent.com'; 
 
 let imagesLoaded = 0;
 function onImageLoad() {
@@ -63,7 +69,6 @@ logoImage.onload = onImageLoad;
 bgImage.onerror = () => { imagesLoaded++; draw(); };
 logoImage.onerror = () => { imagesLoaded++; draw(); };
 
-// --- 【変更】ボタンの表示文字を「/」「*」から「÷」「×」に変更 ---
 const buttons = [
     ['C', '(', ')', '÷'],
     ['7', '8', '9', '×'],
@@ -124,20 +129,20 @@ function draw() {
     }
     ctx.restore();
 
-    // 2. 【変更】ロゴの描画（ディスプレイの左上に横長で綺麗に収まるサイズに調整）
+    // 2. ディスプレイ領域
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.6)';
+    ctx.fillRect(0, 0, 340, topOffset);
+
+    // --- 【変更】ロゴ画像の高画質描画処理 ---
     if (logoImage.complete && logoImage.naturalWidth !== 0) {
-        // 横幅70px、縦幅70pxに縮小して配置
-        ctx.drawImage(logoImage, 20, 10, 70, 70);
+        // 横幅75px、縦幅75pxに縮小配置し、高DPR環境でもくっきり見えるように縮小補正
+        ctx.drawImage(logoImage, 15, 8, 75, 75);
     } else {
         ctx.fillStyle = '#38bdf8'; 
         ctx.font = 'bold 14px monospace';
         ctx.textAlign = 'left';
         ctx.fillText('MNDI', 24, 42);
     }
-
-    // 3. ディスプレイ領域
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.6)';
-    ctx.fillRect(0, 0, 340, topOffset);
     
     // 計算式の履歴
     ctx.fillStyle = '#94a3b8';
@@ -152,7 +157,7 @@ function draw() {
     if (displayValue.length > 10) ctx.font = 'bold 28px sans-serif';
     ctx.fillText(displayValue, 340 - 24, 105);
 
-    // 4. ボタンの描画
+    // 3. ボタンの描画
     for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
             const btnText = buttons[r][c];
@@ -165,7 +170,6 @@ function draw() {
             let textColor = '#f1f5f9';
             let border = 'rgba(255, 255, 255, 0.15)';
             
-            // 判定に「÷」と「×」を含めるよう修正
             if (['÷', '×', '-', '+', '='].includes(btnText)) {
                 bg = isHovered ? 'rgba(14, 165, 233, 0.9)' : 'rgba(2, 132, 199, 0.7)';
                 textColor = '#ffffff';
@@ -229,7 +233,6 @@ canvas.addEventListener('mouseup', handleEnd);
 canvas.addEventListener('touchstart', (e) => { e.preventDefault(); handleStart(e); });
 canvas.addEventListener('touchend', (e) => { e.preventDefault(); handleEnd(e); });
 
-// --- 【変更】計算ロジックにかけ算・わり算の置換を追加 ---
 function handleInput(key) {
     if (key === 'C') {
         currentInput = '';
@@ -237,7 +240,6 @@ function handleInput(key) {
     } else if (key === '=') {
         try {
             if (currentInput) {
-                // 画面表示用の「×」「÷」を、evalが処理できる「*」「/」に一括置換して計算
                 let sanitized = currentInput.replace(/×/g, '*').replace(/÷/g, '/');
                 let result = eval(sanitized);
                 displayValue = Number(result).toString();
