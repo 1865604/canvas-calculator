@@ -2,102 +2,192 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Canvas 電卓</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modern Fluent Calculator</title>
     <style>
-        body { display: flex; justify-content: center; align-items: center; height: 100vh; background: #f0f0f0; margin: 0; }
-        canvas { border: 2px solid #333; background: #fff; border-radius: 10px; cursor: pointer; }
+        body { 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            background: linear-gradient(135deg, #e0eafc, #cfdef3); 
+            margin: 0; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        canvas { 
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15); 
+            border-radius: 24px; 
+            background: #ffffff;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
     </style>
 </head>
 <body>
 
-<canvas id="calcCanvas" width="320" height="480"></canvas>
+<canvas id="calcCanvas" width="340" height="520"></canvas>
 
 <script>
 const canvas = document.getElementById('calcCanvas');
 const ctx = canvas.getContext('2d');
 
+// 高解像度ディスプレイ（Retinaなど）対応
+const dpr = window.devicePixelRatio || 1;
+canvas.width = 340 * dpr;
+canvas.height = 520 * dpr;
+canvas.style.width = '340px';
+canvas.style.height = '520px';
+ctx.scale(dpr, dpr);
+
 let displayValue = '0';
 let currentInput = '';
+let activeKey = null; // タッチ中のボタン
 
-// ボタンの配置定義
+// Windows/Google風のモダンな配列
 const buttons = [
-    ['C', ' ', ' ', '/'],
+    ['C', '(', ')', '/'],
     ['7', '8', '9', '*'],
     ['4', '5', '6', '-'],
     ['1', '2', '3', '+'],
-    ['0', ' ', ' ', '=']
+    ['+/-', '0', '.', '=']
 ];
 
 const cols = 4;
 const rows = 5;
-const btnWidth = canvas.width / cols;
-const btnHeight = (canvas.height - 100) / rows; // 画面上部100pxはディスプレイ用
+const padding = 12; 
+const topOffset = 140; // ディスプレイ領域を広く
+const btnWidth = (340 - (padding * (cols + 1))) / cols;
+const btnHeight = (520 - topOffset - (padding * (rows + 1))) / rows;
 
-// 画面の描画関数
+// 角丸四角形を描画するヘルパー関数
+function drawRoundRect(x, y, w, h, r, fillColor, strokeColor = null) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+    ctx.fillStyle = fillColor;
+    ctx.fill();
+    if (strokeColor) {
+        ctx.strokeStyle = strokeColor;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+    }
+}
+
+// 画面全体の描画
 function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, 340, 520);
 
-    // 1. ディスプレイの描画
-    ctx.fillStyle = '#222';
-    ctx.fillRect(0, 0, canvas.width, 100);
-    ctx.fillStyle = '#fff';
-    ctx.font = '40px sans-serif';
+    // 1. 背景の描画（Windowsのグラスモーフィズム風）
+    drawRoundRect(0, 0, 340, 520, 24, '#f3f3f3');
+
+    // 2. ディスプレイ領域
+    ctx.fillStyle = '#f3f3f3';
+    ctx.fillRect(0, 0, 340, topOffset);
+    
+    // 計算式の履歴（小さく表示）
+    ctx.fillStyle = '#5f6368';
+    ctx.font = '16px sans-serif';
     ctx.textAlign = 'right';
-    ctx.fillText(displayValue, canvas.width - 20, 65);
+    ctx.fillText(currentInput || ' ', 340 - 24, 50);
 
-    // 2. ボタンの描画
+    // メイン数値（Google風の太文字とゆったりした配置）
+    ctx.fillStyle = '#1a1a1a';
+    ctx.font = 'bold 44px sans-serif';
+    ctx.textAlign = 'right';
+    // 文字が長すぎる場合はサイズを小さくする
+    if (displayValue.length > 10) ctx.font = 'bold 28px sans-serif';
+    ctx.fillText(displayValue, 340 - 24, 105);
+
+    // 3. ボタンの描画
     for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
             const btnText = buttons[r][c];
-            if (btnText === ' ') continue; // 空白はスキップ
+            const x = padding + c * (btnWidth + padding);
+            const y = topOffset + padding + r * (btnHeight + padding);
 
-            let x = c * btnWidth;
-            let y = 100 + r * btnHeight;
-            let w = btnWidth;
-            let h = btnHeight;
-
-            // 「0」ボタンは横に3マス分つなげる
-            if (btnText === '0') w = btnWidth * 3;
-
-            // ボタンの背景色
-            ctx.fillStyle = (btnText === '=') ? '#ff9500' : 
-                            (['/', '*', '-', '+'].includes(btnText)) ? '#f1c40f' : 
-                            (btnText === 'C') ? '#e74c3c' : '#e0e0e0';
+            const isHovered = (activeKey && activeKey.r === r && activeKey.c === c);
             
-            ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 2;
-            ctx.fillRect(x, y, w, h);
-            ctx.strokeRect(x, y, w, h);
+            // 色の定義（Google / Windows11を意識した配色）
+            let bg = '#ffffff'; // 基本は白
+            let textColor = '#1a1a1a';
+            
+            if (['/', '*', '-', '+', '='].includes(btnText)) {
+                // 記号・イコールはアクセントカラー（Googleブルー）
+                bg = isHovered ? '#1557b0' : '#1a73e8';
+                textColor = '#ffffff';
+            } else if (['C', '(', ')', '+/-'].includes(btnText)) {
+                // 機能ボタンは薄いグレー
+                bg = isHovered ? '#dcdcdc' : '#f1f3f4';
+                textColor = '#3c4043';
+            } else {
+                // 数字ボタンのホバー
+                if (isHovered) bg = '#f8f9fa';
+            }
+
+            // ボタン本体の描画（滑らかな角丸）
+            drawRoundRect(x, y, btnWidth, btnHeight, 16, bg);
 
             // ボタンの文字
-            ctx.fillStyle = (['=', '/', '*', '-', '+', 'C'].includes(btnText)) ? '#fff' : '#333';
-            ctx.font = '24px sans-serif';
+            ctx.fillStyle = textColor;
+            ctx.font = ['/', '*', '-', '+', '='].includes(btnText) ? 'bold 22px sans-serif' : '20px sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(btnText, x + w / 2, y + h / 2);
+            ctx.fillText(btnText, x + btnWidth / 2, y + btnHeight / 2);
         }
     }
 }
 
-// クリック（タップ）イベントの処理
-canvas.addEventListener('click', (e) => {
+// 座標からどのボタンが押されたか判定する関数
+function getButtonFromCoords(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const x = (clientX - rect.left) * (340 / rect.width);
+    const y = (clientY - rect.top) * (520 / rect.height);
 
-    if (y < 100) return; // ディスプレイ部分は無視
+    if (y < topOffset) return null;
 
-    const c = Math.floor(x / btnWidth);
-    const r = Math.floor((y - 100) / btnHeight);
-    let clickedText = buttons[r][c];
-
-    // 「0」の拡大対応
-    if (r === 4 && c < 3) clickedText = '0';
-
-    if (clickedText && clickedText !== ' ') {
-        handleInput(clickedText);
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            const bx = padding + c * (btnWidth + padding);
+            const by = topOffset + padding + r * (btnHeight + padding);
+            if (x >= bx && x <= bx + btnWidth && y >= by && y <= by + btnHeight) {
+                return { r, c, text: buttons[r][c] };
+            }
+        }
     }
-});
+    return null;
+}
+
+// 押し心地を出すためのイベント（マウス＆スマホ両対応）
+function handleStart(e) {
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const btn = getButtonFromCoords(clientX, clientY);
+    if (btn) {
+        activeKey = btn;
+        draw();
+    }
+}
+
+function handleEnd(e) {
+    if (activeKey) {
+        handleInput(activeKey.text);
+        activeKey = null;
+        draw();
+    }
+}
+
+canvas.addEventListener('mousedown', handleStart);
+canvas.addEventListener('mouseup', handleEnd);
+canvas.addEventListener('touchstart', (e) => { e.preventDefault(); handleStart(e); });
+canvas.addEventListener('touchend', (e) => { e.preventDefault(); handleEnd(e); });
 
 // 計算ロジック
 function handleInput(key) {
@@ -106,15 +196,21 @@ function handleInput(key) {
         displayValue = '0';
     } else if (key === '=') {
         try {
-            // evalで簡易計算（※学習用の簡易実装です）
             if (currentInput) {
-                let result = eval(currentInput);
+                // 安全な計算のために基本的な記号のみ許可して評価
+                let sanitized = currentInput.replace(/×/g, '*').replace(/÷/g, '/');
+                let result = eval(sanitized);
                 displayValue = Number(result).toString();
                 currentInput = displayValue;
             }
         } catch (error) {
             displayValue = 'Error';
             currentInput = '';
+        }
+    } else if (key === '+/-') {
+        if (displayValue !== '0') {
+            displayValue = displayValue.startsWith('-') ? displayValue.slice(1) : '-' + displayValue;
+            currentInput = displayValue;
         }
     } else {
         if (displayValue === '0' && !['/', '*', '-', '+'].includes(key)) {
@@ -124,7 +220,6 @@ function handleInput(key) {
         }
         displayValue = currentInput;
     }
-    draw();
 }
 
 // 初回描画
